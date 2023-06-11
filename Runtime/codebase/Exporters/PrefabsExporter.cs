@@ -3,6 +3,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using System;
 
 
 
@@ -26,9 +27,20 @@ namespace Solana.Unity.SDK.Exporters
                 Directory.CreateDirectory(destinationRootFolder);
             }
 
+            string[] dirs = null;
+            try
+            {
+                dirs = Directory.GetFiles(sourceRootFolder, "*.prefab");
+            }
+            catch (Exception e)
+            {
+                Debug.Log(e.Message);
+            }
+            if (dirs == null) { return; }
+
             // Iterate through all the prefabs in Packages/com.solana.unity_sdk/Runtime/codebase/Prefabs
             // and copy them over to Assets/Resources/SolanaUnitySDK
-            foreach (var prefabPath in Directory.GetFiles(sourceRootFolder, "*.prefab"))
+            foreach (var prefabPath in dirs)
             {
                 var prefabName = Path.GetFileNameWithoutExtension(prefabPath);
                 var destinationPath = Path.Combine(destinationRootFolder, prefabName + ".prefab");

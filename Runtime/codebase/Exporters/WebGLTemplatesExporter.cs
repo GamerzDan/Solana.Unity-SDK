@@ -3,6 +3,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using System;
 
 /// Inspired by Author: Jonas Hahn, Source: https://github.com/Woody4618/Solana.Unity-SDK/blob/main/Runtime/codebase/WebGLTemplatePostProcessor.cs
 
@@ -28,7 +29,16 @@ public class WebGLTemplatesExporter {
         }
 
         // Iterate trough all the template folders in Packages/com.solana.unity_sdk/Runtime/codebase/WebGLTemplates/ and copy them over to Assets/WebGLTemplates
-        foreach (var templateFolder in Directory.GetDirectories("Packages/com.solana.unity_sdk/Runtime/codebase/WebGLTemplates"))
+        string[] dirs = null;
+        try
+        {
+           dirs = Directory.GetDirectories("Packages/com.solana.unity_sdk/Runtime/codebase/WebGLTemplates");
+        } catch (Exception e)
+        {
+            Debug.Log(e.Message);
+        }
+        if(dirs == null) { return;  }
+        foreach (var templateFolder in dirs)
         {
             var templateName = Path.GetFileName(templateFolder);
             var sourceFolder = Path.Combine(sourceRootFolder, templateName);
