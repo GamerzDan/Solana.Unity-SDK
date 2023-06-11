@@ -20,7 +20,7 @@ namespace Solana.Unity.SDK.Exporters
         private static void OnScriptsReloaded()
         {
             var destinationRootFolder = Path.GetFullPath("Assets/Resources/SolanaUnitySDK/");
-            var sourceRootFolder = Path.GetFullPath("Packages/com.solana.unity_sdk/Runtime/codebase/Prefabs/");
+            var sourceRootFolder = Path.GetFullPath("Assets/ExtraPackages/SolanaUnitySDK/Runtime/codebase/Prefabs/");
 
             if (!Directory.Exists(destinationRootFolder))
             {

@@ -21,7 +21,7 @@ public class WebGLTemplatesExporter {
     [UnityEditor.Callbacks.DidReloadScripts]
     private static void OnScriptsReloaded() {
         var destinationRootFolder = Path.GetFullPath("Assets/WebGLTemplates/");
-        var sourceRootFolder = Path.GetFullPath("Packages/com.solana.unity_sdk/Runtime/codebase/WebGLTemplates/");
+        var sourceRootFolder = Path.GetFullPath("Assets/ExtraPackages/SolanaUnitySDK/Runtime/codebase/WebGLTemplates/");
 
         if (!Directory.Exists("Assets/WebGLTemplates"))
         {
@@ -32,7 +32,7 @@ public class WebGLTemplatesExporter {
         string[] dirs = null;
         try
         {
-           dirs = Directory.GetDirectories("Packages/com.solana.unity_sdk/Runtime/codebase/WebGLTemplates");
+           dirs = Directory.GetDirectories("Assets/ExtraPackages/SolanaUnitySDK/Runtime/codebase/WebGLTemplates");
         } catch (Exception e)
         {
             Debug.Log(e.Message);
