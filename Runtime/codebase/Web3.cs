@@ -119,8 +119,11 @@ namespace Solana.Unity.SDK
         #endregion
 
         #region Convenience shortnames for accessing commonly used wallet methods
-        public static IRpcClient Rpc => Instance != null ? Instance.WalletBase?.ActiveRpcClient : null;
-        public static IStreamingRpcClient WsRpc => Instance != null ? Instance.WalletBase?.ActiveStreamingRpcClient : null;
+        public static IRpcClient Rpc => Instance != null && Instance.WalletBase != null
+            ? Instance.WalletBase?.ActiveRpcClient : Instance != null ? Instance.GetDefaultRpc() : null;
+
+        public static IStreamingRpcClient WsRpc => Instance != null && Instance.WalletBase != null 
+            ? Instance.WalletBase?.ActiveStreamingRpcClient : Instance != null ? Instance.GetDefaultWsRpc() : null;
         public static Account Account => Instance != null ? Instance.WalletBase?.Account : null;
         public static WalletBase Wallet => Instance != null ? Instance.WalletBase : null;
         
@@ -348,24 +351,30 @@ namespace Solana.Unity.SDK
                 .Select(x => x.First())
                 .ToList()
                 .FindAll(x => x.metaplexData.data.offchainData != null);
-
+            
             // Fetch nfts
             List<UniTask> loadingTasks = new List<UniTask>();
             List<Nft.Nft> nfts = new List<Nft.Nft>(_nfts);
+
+            var total = 0;
             if (tokens is {Count: > 0})
             {
                 var toFetch = tokens
                     .Where(item => item.Account.Data.Parsed.Info.TokenAmount.AmountUlong == 1)
                     .Where(item => nfts
                         .All(t => t.metaplexData.data.mint!= item.Account.Data.Parsed.Info.Mint)).ToArray();
-                var total = nfts.Count + toFetch.Length;
+                total = nfts.Count + toFetch.Length;
+                
                 foreach (var item in toFetch)
                 {
                     var tNft = Nft.Nft.TryGetNftData(item.Account.Data.Parsed.Info.Mint, Rpc, loadTexture: loadTexture).AsUniTask();
                     loadingTasks.Add(tNft);
                     tNft.ContinueWith(nft =>
                         {
-                            if(nft == null) return;
+                            if(tNft.AsTask().Exception != null || nft == null) {
+                                total--;
+                                return;
+                            }
                             nfts.Add(nft);
                             if(notifyRegisteredListeners) 
                                 OnNFTsUpdateInternal?.Invoke(nfts, total);
@@ -373,6 +382,7 @@ namespace Solana.Unity.SDK
                 }
             }
             await UniTask.WhenAll(loadingTasks);
+            OnNFTsUpdateInternal?.Invoke(nfts, nfts.Count);
             _nfts = nfts;
             return nfts;
         }
@@ -392,6 +402,18 @@ namespace Solana.Unity.SDK
                 },
                 commitment
             );
+        }
+        
+        private IRpcClient GetDefaultRpc()
+        {
+            var inGame = new InGameWallet(rpcCluster, customRpc, webSocketsRpc, autoConnectOnStartup);
+            return inGame.ActiveRpcClient;
+        }
+        
+        private IStreamingRpcClient GetDefaultWsRpc()
+        {
+            var inGame = new InGameWallet(rpcCluster, customRpc, webSocketsRpc, autoConnectOnStartup);
+            return inGame.ActiveStreamingRpcClient;
         }
         
         #endregion
