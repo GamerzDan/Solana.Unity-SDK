@@ -13,7 +13,7 @@ namespace Solana.Unity.SDK
     {
         public SolanaMobileWalletAdapterOptions solanaMobileWalletAdapterOptions;
         public SolanaWalletAdapterWebGLOptions solanaWalletAdapterWebGLOptions;
-        public PhantomWalletOptions phantomWalletOptions;
+        public PhantomWalletOptions phantomWalletOptions;        
     }
     
     public class SolanaWalletAdapter: WalletBase

@@ -18,6 +18,10 @@ namespace Solana.Unity.SDK
         public string iconUri = "/favicon.ico";
         public string name = "Solana.Unity-SDK";
         public bool keepConnectionAlive = true;
+        /// <summary>
+        /// Method with string parameter to invoke if Login() encounters a error
+        /// </summary>
+        public Action<String> OnError = null;
     }
     
     
@@ -58,9 +62,12 @@ namespace Solana.Unity.SDK
             AuthorizationResult authorization = null;
             var localAssociationScenario = new LocalAssociationScenario();
             var cluster = RPCNameMap[(int)RpcCluster];
-            var result = await localAssociationScenario.StartAndExecute(
-                new List<Action<IAdapterOperations>>
-                {
+            Debug.Log("SolanaMobileAdapter _Login1");
+            try
+            {
+                var result = await localAssociationScenario.StartAndExecute(
+                    new List<Action<IAdapterOperations>>
+                    {
                     async client =>
                     {
                         authorization = await client.Authorize(
@@ -68,20 +75,36 @@ namespace Solana.Unity.SDK
                             new Uri(_walletOptions.iconUri, UriKind.Relative),
                             _walletOptions.name, cluster);
                     }
+                    }
+                );
+                if (!result.WasSuccessful)
+                {
+                    Debug.LogError(result.Error.Message);
+                    //throw new Exception(result.Error.Message);
+                    if (_walletOptions.OnError != null)
+                    {
+                        _walletOptions.OnError.Invoke(result.Error.Message);
+                    }
+                    return null;
                 }
-            );
-            if (!result.WasSuccessful)
+
+                Debug.Log("SolanaMobileAdapter _Login2");
+                _authToken = authorization.AuthToken;
+                var publicKey = new PublicKey(authorization.PublicKey);
+                if (_walletOptions.keepConnectionAlive)
+                {
+                    PlayerPrefs.SetString("pk", publicKey.ToString());
+                }
+                return new Account(string.Empty, publicKey);
+            } catch (Exception e)
             {
-                Debug.LogError(result.Error.Message);
-                throw new Exception(result.Error.Message);
+                Debug.Log("MobileWalletAdapter _LoginExcep: " + e.Message);
+                if(_walletOptions.OnError != null)
+                {
+                    _walletOptions.OnError.Invoke(e.Message);
+                }
             }
-            _authToken = authorization.AuthToken;
-            var publicKey = new PublicKey(authorization.PublicKey);
-            if (_walletOptions.keepConnectionAlive)
-            {
-                PlayerPrefs.SetString("pk", publicKey.ToString());
-            }
-            return new Account(string.Empty, publicKey);
+            return null;
         }
 
         protected override async Task<Transaction> _SignTransaction(Transaction transaction)

@@ -22,6 +22,10 @@ namespace Solana.Unity.SDK
         /// This can be used if you donot want to show the popup-overlay and instead blend the WalletAdapterUI in your own UI
         /// </summary>
         public GameObject walletAdapterUIExistingReference;
+        /// <summary>
+        /// Method with string parameter to invoke if Login() encounters a error
+        /// </summary>
+        public Action<String> OnError = null;
     }
     public class SolanaWalletAdapterWebGL: WalletBase
     {
@@ -125,6 +129,10 @@ namespace Solana.Unity.SDK
             {
                 Debug.LogError("WalletAdapter _Login -> Exception: " + e);
                 _loginTaskCompletionSource.SetResult(null);
+                if (_walletOptions.OnError != null)
+                {
+                    _walletOptions.OnError.Invoke(e.Message);
+                }
             }
             if (WalletAdapterUI != null ){
                 WalletAdapterUI.SetActive(false);
@@ -135,6 +143,7 @@ namespace Solana.Unity.SDK
         private static async Task SetCurrentWallet()
         {
             await InitWallets();
+            //TODO: Probably return error if NoWallet installed
             if (_currentWallet == null)
             {
                 if (WalletAdapterUI == null)
