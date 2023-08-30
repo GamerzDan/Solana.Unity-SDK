@@ -16,6 +16,12 @@ namespace Solana.Unity.SDK
         public GameObject walletAdapterButtonPrefab;
 
         public GameObject walletAdapterUIPrefab;
+
+        /// <summary>
+        /// Pass a GameObject reference to WalletAdapterUI object if it already exists in your UI.
+        /// This can be used if you donot want to show the popup-overlay and instead blend the WalletAdapterUI in your own UI
+        /// </summary>
+        public GameObject walletAdapterUIExistingReference;
     }
     public class SolanaWalletAdapterWebGL: WalletBase
     {
@@ -87,7 +93,11 @@ namespace Solana.Unity.SDK
                 ExternGetWallets(OnWalletsLoaded);
                 var walletsData = await _getWalletsTaskCompletionSource.Task;
                 Wallets = JsonUtility.FromJson<WalletSpecsObject>(walletsData).wallets;
+
+                Debug.Log("InitWallets Data: " + walletsData);
             }
+            Debug.Log("InitWallets Found: " + Wallets.Length);
+            Debug.Log("InitWallets Wallet1: " + Wallets[0].icon);
         }
         
         
@@ -129,7 +139,14 @@ namespace Solana.Unity.SDK
             {
                 if (WalletAdapterUI == null)
                 {
-                    WalletAdapterUI = GameObject.Instantiate(_walletOptions.walletAdapterUIPrefab);
+                    if (_walletOptions.walletAdapterUIExistingReference != null)
+                    {
+                        WalletAdapterUI = _walletOptions.walletAdapterUIExistingReference;
+                    }
+                    else
+                    {
+                        WalletAdapterUI = GameObject.Instantiate(_walletOptions.walletAdapterUIPrefab);
+                    }
                 }
 
                 var waitForWalletSelectionTask = new TaskCompletionSource<string>();
@@ -140,6 +157,7 @@ namespace Solana.Unity.SDK
                 walletAdapterScreen.buttonPrefab = _walletOptions.walletAdapterButtonPrefab;
                 walletAdapterScreen.OnSelectedAction = walletName =>
                 {
+                    Debug.Log("SetCurrentWallet ActionSelected: " + walletName);
                     waitForWalletSelectionTask.SetResult(walletName);
                 };
                 WalletAdapterUI.SetActive(true);
