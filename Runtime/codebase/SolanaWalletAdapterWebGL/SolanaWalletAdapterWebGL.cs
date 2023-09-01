@@ -97,11 +97,7 @@ namespace Solana.Unity.SDK
                 ExternGetWallets(OnWalletsLoaded);
                 var walletsData = await _getWalletsTaskCompletionSource.Task;
                 Wallets = JsonUtility.FromJson<WalletSpecsObject>(walletsData).wallets;
-
-                Debug.Log("InitWallets Data: " + walletsData);
             }
-            Debug.Log("InitWallets Found: " + Wallets.Length);
-            Debug.Log("InitWallets Wallet1: " + Wallets[0].icon);
         }
         
         
@@ -150,6 +146,7 @@ namespace Solana.Unity.SDK
                 {
                     if (_walletOptions.walletAdapterUIExistingReference != null)
                     {
+                        Debug.Log("SolanaSDK: Using walletAdapterUIExistingReference");
                         WalletAdapterUI = _walletOptions.walletAdapterUIExistingReference;
                     }
                     else
