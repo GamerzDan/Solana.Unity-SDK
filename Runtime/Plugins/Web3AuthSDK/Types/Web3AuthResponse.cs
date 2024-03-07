@@ -1,38 +1,22 @@
-﻿
-using System;
+﻿using System;
 using UnityEngine.Scripting;
 
-[Preserve]
 [Serializable]
+[Preserve]
 public class Web3AuthResponse
 {
+    [Preserve]
     public string privKey { get; set; }
+    [Preserve]
     public string ed25519PrivKey { get; set; }
+    [Preserve]
     public UserInfo userInfo { get; set; }
+    [Preserve]
     public string error { get; set; }
+    [Preserve]
     public string sessionId { get; set; }
-
     [Preserve]
-    public Web3AuthResponse()
-    {
-    }
-
+    public string coreKitKey { get; set; }
     [Preserve]
-    public Web3AuthResponse(string privKey, string ed25519PrivKey, UserInfo userInfo, string sessionId)
-    {
-        this.privKey = privKey;
-        this.ed25519PrivKey = ed25519PrivKey;
-        this.userInfo = userInfo;
-        this.sessionId = sessionId;
-    }
-
-    [Preserve]
-    public Web3AuthResponse(string privKey, string ed25519PrivKey, UserInfo userInfo, string error, string sessionId)
-    {
-        this.privKey = privKey;
-        this.ed25519PrivKey = ed25519PrivKey;
-        this.userInfo = userInfo;
-        this.error = error;
-        this.sessionId = sessionId;
-    }
+    public string coreKitEd25519PrivKey { get; set; }
 }

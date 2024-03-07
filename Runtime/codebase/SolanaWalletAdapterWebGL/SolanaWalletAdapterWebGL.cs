@@ -62,6 +62,8 @@ namespace Solana.Unity.SDK
         public static WalletSpecs[] Wallets { get; private set; }
 
         private static WalletSpecs _currentWallet;
+
+        private static string _clusterName;
             
 
         [Obsolete("Use SolanaWalletAdapter class instead, which is the cross platform wrapper.")]
@@ -78,12 +80,14 @@ namespace Solana.Unity.SDK
             {
                 throw new Exception("SolanaWalletAdapterWebGL can only be used on WebGL");
             }
+            _clusterName = RPCNameMap[(int)RpcCluster];
         }
         
         private static async Task InitWallets() {
             _currentWallet = null;
             _walletsInitializedTaskCompletionSource = new TaskCompletionSource<bool>();
-            InitWalletAdapter(OnWalletsInitialized);
+            
+            InitWalletAdapter(OnWalletsInitialized, _clusterName);
             bool isXnft = await _walletsInitializedTaskCompletionSource.Task;
             if (isXnft){
                _currentWallet = new WalletSpecs()
@@ -215,9 +219,15 @@ namespace Solana.Unity.SDK
         [MonoPInvokeCallback(typeof(Action<string>))]
         private static void OnWalletConnected(string walletPubKey)
         {
+            if (walletPubKey == null)
+            {
+                _loginTaskCompletionSource.TrySetException(new Exception("Login cancelled"));
+                _loginTaskCompletionSource.TrySetResult(null);
+                return;
+            }
             Debug.Log($"Wallet {walletPubKey} connected!");
             _account = new Account("", walletPubKey);
-            _loginTaskCompletionSource.SetResult(_account);
+            _loginTaskCompletionSource.TrySetResult(_account);
         }
 
         /// <summary>
@@ -227,6 +237,12 @@ namespace Solana.Unity.SDK
         [MonoPInvokeCallback(typeof(Action<string>))]
         public static void OnTransactionSigned(string transaction)
         {
+            if (transaction == null)
+            {
+                _signedTransactionTaskCompletionSource.TrySetException(new Exception("Transaction signing cancelled"));
+                _signedTransactionTaskCompletionSource.TrySetResult(null);
+                return;
+            }
             var tx = Transaction.Deserialize(Convert.FromBase64String(transaction));
             _signedTransactionTaskCompletionSource.SetResult(tx);
         }
@@ -238,6 +254,12 @@ namespace Solana.Unity.SDK
         [MonoPInvokeCallback(typeof(Action<string>))]
         public static void OnAllTransactionsSigned(string signatures)
         {
+            if (signatures == null)
+            {
+                _signedAllTransactionsTaskCompletionSource.TrySetException(new Exception("Transactions signing cancelled"));
+                _signedAllTransactionsTaskCompletionSource.TrySetResult(null);
+                return;
+            }
             string[] signaturesList = signatures.Split(',');
             for (int i = 0; i < signaturesList.Length; i++)
             {
@@ -258,6 +280,12 @@ namespace Solana.Unity.SDK
         [MonoPInvokeCallback(typeof(Action<string>))]
         public static void OnMessageSigned(string signature)
         {
+            if (signature == null)
+            {
+                _signedMessageTaskCompletionSource.TrySetException(new Exception("Message signing cancelled"));
+                _signedMessageTaskCompletionSource.TrySetResult(null);
+                return;
+            }
             _signedMessageTaskCompletionSource.SetResult(Convert.FromBase64String(signature));
         }
 
@@ -300,7 +328,7 @@ namespace Solana.Unity.SDK
                 private static extern string  ExternGetWallets(Action<string> callback);
 
                 [DllImport("__Internal")]
-                private static extern void InitWalletAdapter(Action<bool> callback);
+                private static extern void InitWalletAdapter(Action<bool> callback, string clusterName);
                 
                 
         #else
@@ -309,7 +337,7 @@ namespace Solana.Unity.SDK
                 private static void ExternSignAllTransactionsWallet(string walletName, string transactions, Action<string> callback){}
                 private static void ExternSignMessageWallet(string walletName, string messageBase64, Action<string> callback){}
                 private static string ExternGetWallets(Action<string> callback){return null;}
-                private static void InitWalletAdapter(Action<bool> callback){}
+                private static void InitWalletAdapter(Action<bool> callback, string clusterName){}
                 
         #endif
     }

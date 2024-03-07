@@ -1,22 +1,22 @@
 ﻿using System;
 using UnityEngine.Scripting;
 
-[Serializable]
 [Preserve]
+[Serializable]
 public class LoginParams
 {
-    public Provider loginProvider { get; set; }
-    public string dappShare { get; set; }
-    public ExtraLoginOptions extraLoginOptions { get; set; }
-    public Uri redirectUrl { get; set; }
-    public string appState { get; set; }
-    public MFALevel mfaLevel { get; set; }
-    public int sessionTime { get; set; }
-
-    public Curve curve { get; set; }
-
     [Preserve]
-    public LoginParams()
-    {
-    }
+    public Provider loginProvider { get; set; }
+    [Preserve]
+    public string dappShare { get; set; }
+    [Preserve]
+    public ExtraLoginOptions extraLoginOptions { get; set; }
+    [Preserve]
+    public Uri redirectUrl { get; set; }
+    [Preserve]
+    public string appState { get; set; }
+    [Preserve]
+    public MFALevel mfaLevel { get; set; }
+    [Preserve]
+    public Curve curve { get; set; }
 }

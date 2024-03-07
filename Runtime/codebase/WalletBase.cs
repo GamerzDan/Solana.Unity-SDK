@@ -21,27 +21,32 @@ namespace Solana.Unity.SDK
     {
         MainNet = 0,
         DevNet = 1,
-        TestNet = 2
+        TestNet = 2,
+        LocalNet = 3
     }
 
     public abstract class WalletBase : IWalletBase
     {
-        private const long SolLamports = 1000000000;
+        public const long SolLamports = 1000000000;
         public RpcCluster RpcCluster  { get; }
+        
+        public int RpcMaxHits = 30;
+        public int RpcMaxHitsPerSeconds = 1;
 
         private readonly Dictionary<int, Cluster> _rpcClusterMap = new ()
         {
             { 0, Cluster.MainNet },
             { 1, Cluster.DevNet },
-            { 2, Cluster.TestNet }
+            { 2, Cluster.TestNet },
+            { 3, Cluster.LocalNet }
         };
-        
+
         protected readonly Dictionary<int, string> RPCNameMap = new ()
         {
             { 0, "mainnet-beta" },
             { 1, "devnet" },
             { 2, "testnet" },
-            { 3, "mainnet-beta" },
+            { 3, "localnet" },
         };
 
         protected readonly string CustomRpcUri;
@@ -98,7 +103,7 @@ namespace Solana.Unity.SDK
             Account = await _CreateAccount(mnemonic, password);
             return Account;
         }
-        
+
         /// <summary>
         /// Create a new account
         /// </summary>
@@ -106,29 +111,29 @@ namespace Solana.Unity.SDK
         /// <param name="password"></param>
         /// <returns></returns>
         protected abstract Task<Account> _CreateAccount(string mnemonic = null, string password = null);
-        
+
         /// <inheritdoc />
-        public async Task<double> GetBalance(PublicKey publicKey, Commitment commitment = Commitment.Finalized)
+        public async Task<double> GetBalance(PublicKey publicKey, Commitment commitment = Commitment.Confirmed)
         {
             var balance= await ActiveRpcClient.GetBalanceAsync(publicKey, commitment);
             return (double)(balance.Result?.Value ?? 0) / SolLamports;
         }
-        
+
         /// <inheritdoc />
-        public async Task<double> GetBalance(Commitment commitment = Commitment.Finalized)
+        public async Task<double> GetBalance(Commitment commitment = Commitment.Confirmed)
         {
             return await GetBalance(Account.PublicKey, commitment);
         }
 
         /// <inheritdoc />
         public async Task<RequestResult<string>> Transfer(
-            PublicKey destination, 
-            PublicKey tokenMint, 
-            ulong amount, 
-            Commitment commitment = Commitment.Finalized)
+            PublicKey destination,
+            PublicKey tokenMint,
+            ulong amount,
+            Commitment commitment = Commitment.Confirmed)
         {
             var sta = AssociatedTokenAccountProgram.DeriveAssociatedTokenAccount(
-                Account.PublicKey, 
+                Account.PublicKey,
                 tokenMint);
             var ata = AssociatedTokenAccountProgram.DeriveAssociatedTokenAccount(destination, tokenMint);
             var tokenAccounts = await ActiveRpcClient.GetTokenAccountsByOwnerAsync(destination, tokenMint, null);
@@ -141,7 +146,7 @@ namespace Solana.Unity.SDK
             };
             if (tokenAccounts.Result == null || tokenAccounts.Result.Value.Count == 0)
             {
-                transaction.Instructions.Add( 
+                transaction.Instructions.Add(
                     AssociatedTokenAccountProgram.CreateAssociatedTokenAccount(
                     Account,
                     destination,
@@ -156,20 +161,20 @@ namespace Solana.Unity.SDK
             ));
             return await SignAndSendTransaction(transaction, commitment: commitment);
         }
-        
+
         /// <inheritdoc />
-        public async Task<RequestResult<string>> Transfer(PublicKey destination, ulong amount, 
-            Commitment commitment = Commitment.Finalized)
+        public async Task<RequestResult<string>> Transfer(PublicKey destination, ulong amount,
+            Commitment commitment = Commitment.Confirmed)
         {
             var transaction = new Transaction
             {
                 RecentBlockHash = await GetBlockHash(),
                 FeePayer = Account.PublicKey,
                 Instructions = new List<TransactionInstruction>
-                { 
+                {
                     SystemProgram.Transfer(
-                        Account.PublicKey, 
-                        destination, 
+                        Account.PublicKey,
+                        destination,
                         amount)
                 },
                 Signatures = new List<SignaturePubKeyPair>()
@@ -181,22 +186,22 @@ namespace Solana.Unity.SDK
         public async Task<TokenAccount[]> GetTokenAccounts(PublicKey tokenMint, PublicKey tokenProgramPublicKey)
         {
             var rpc = ActiveRpcClient;
-            var result = await 
+            var result = await
                 rpc.GetTokenAccountsByOwnerAsync(
-                    Account.PublicKey, 
-                    tokenMint, 
+                    Account.PublicKey,
+                    tokenMint,
                     tokenProgramPublicKey);
             return result.Result?.Value?.ToArray();
         }
-        
+
         /// <inheritdoc />
-        public async Task<TokenAccount[]> GetTokenAccounts(Commitment commitment = Commitment.Finalized)
+        public async Task<TokenAccount[]> GetTokenAccounts(Commitment commitment = Commitment.Confirmed)
         {
             var rpc = ActiveRpcClient;
-            var result = await 
+            var result = await
                 rpc.GetTokenAccountsByOwnerAsync(
-                    Account.PublicKey, 
-                    null, 
+                    Account.PublicKey,
+                    null,
                     TokenProgram.ProgramIdKey,
                     commitment);
             return result.Result?.Value?.ToArray();
@@ -226,7 +231,7 @@ namespace Solana.Unity.SDK
         /// <param name="transactions"></param>
         /// <returns></returns>
         protected abstract Task<Transaction[]> _SignAllTransactions(Transaction[] transactions);
-        
+
         /// <inheritdoc />
         public virtual async Task<Transaction[]> SignAllTransactions(Transaction[] transactions)
         {
@@ -246,9 +251,9 @@ namespace Solana.Unity.SDK
         /// <inheritdoc />
         public virtual async Task<RequestResult<string>> SignAndSendTransaction
         (
-            Transaction transaction, 
+            Transaction transaction,
             bool skipPreflight = false,
-            Commitment commitment = Commitment.Finalized)
+            Commitment commitment = Commitment.Confirmed)
         {
             var signedTransaction = await SignTransaction(transaction);
             return await ActiveRpcClient.SendTransactionAsync(
@@ -265,7 +270,7 @@ namespace Solana.Unity.SDK
         /// <param name="amount">Amount of sol</param>
         /// <param name="commitment"></param>
         /// <returns>Amount of sol</returns>
-        public async Task<RequestResult<string>> RequestAirdrop(ulong amount = SolLamports, Commitment commitment = Commitment.Finalized)
+        public async Task<RequestResult<string>> RequestAirdrop(ulong amount = SolLamports, Commitment commitment = Commitment.Confirmed)
         {
             return await ActiveRpcClient.RequestAirdropAsync(Account.PublicKey, amount, commitment); ;
         }
@@ -282,34 +287,36 @@ namespace Solana.Unity.SDK
         /// <param name="maxSeconds"></param>
         /// <returns></returns>
         public async Task<string> GetBlockHash(
-            Commitment commitment = Commitment.Finalized,
+            Commitment commitment = Commitment.Confirmed,
             bool useCache = true,
-            int maxSeconds = 15)
+            int maxSeconds = 0)
         {
             if(ActiveRpcClient == null) return null;
-            if (useCache)
+            var exists = _commitmentCache.TryGetValue(commitment.ToString(), out var cacheEntry);
+            if (useCache && maxSeconds > 0)
             {
-                var exists = _commitmentCache.TryGetValue(commitment.ToString(), out var cacheEntry);
                 switch (exists)
                 {
                     case true when (DateTime.Now - cacheEntry.Item1).TotalSeconds < maxSeconds:
                         return cacheEntry.Item2;
                     case true:
                         _commitmentCache.Remove(commitment.ToString());
+                        exists = false;
                         break;
                 }
             }
-            var blockhash = (await ActiveRpcClient.GetRecentBlockHashAsync()).Result?.Value?.Blockhash;
-            if(blockhash != null)_commitmentCache.Add(commitment.ToString(), (DateTime.Now, blockhash));
+            var blockhash = (await ActiveRpcClient.GetLatestBlockHashAsync(commitment)).Result?.Value?.Blockhash;
+            if(exists) _commitmentCache.Remove(commitment.ToString());
+            if(blockhash != null && useCache)_commitmentCache.Add(commitment.ToString(), (DateTime.Now, blockhash));
             return blockhash;
         }
 
         #endregion
-        
 
-        
+
+
         /// <summary>
-        /// Start RPC connection and return new RPC Client 
+        /// Start RPC connection and return new RPC Client
         /// </summary>
         /// <returns></returns>
         private IRpcClient StartConnection()
@@ -318,11 +325,18 @@ namespace Solana.Unity.SDK
             {
                 if (_activeRpcClient == null && CustomRpcUri.IsNullOrEmpty())
                 {
-                    _activeRpcClient = ClientFactory.GetClient(_rpcClusterMap[(int)RpcCluster]);
+                    _activeRpcClient = ClientFactory.GetClient(
+                        _rpcClusterMap[(int)RpcCluster], 
+                        null, 
+                        rateLimiter: UnityRateLimiter.Create().AllowHits(RpcMaxHits).PerSeconds(RpcMaxHitsPerSeconds)
+                    );
                 }
                 if (_activeRpcClient == null && !CustomRpcUri.IsNullOrEmpty())
                 {
-                    _activeRpcClient = ClientFactory.GetClient(CustomRpcUri);
+                    _activeRpcClient = ClientFactory.GetClient(
+                        CustomRpcUri,
+                        null,
+                        rateLimiter: UnityRateLimiter.Create().AllowHits(RpcMaxHits).PerSeconds(RpcMaxHitsPerSeconds));
                 }
 
                 return _activeRpcClient;
@@ -332,9 +346,9 @@ namespace Solana.Unity.SDK
                 return null;
             }
         }
-        
+
         /// <summary>
-        /// Start streaming RPC connection and return a new streaming RPC Client 
+        /// Start streaming RPC connection and return a new streaming RPC Client
         /// </summary>
         /// <returns></returns>
         private IStreamingRpcClient StartStreamingConnection()

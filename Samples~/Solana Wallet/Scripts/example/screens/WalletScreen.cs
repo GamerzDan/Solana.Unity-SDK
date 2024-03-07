@@ -44,6 +44,7 @@ namespace Solana.Unity.SDK.Example
         private CancellationTokenSource _stopTask;
         private List<TokenItem> _instantiatedTokens = new();
         private static TokenMintResolver _tokenResolver;
+        private bool _isLoadingTokens = false;
 
         public void Start()
         {
@@ -66,7 +67,7 @@ namespace Solana.Unity.SDK.Example
             
             swapBtn.onClick.AddListener(() =>
             {
-                manager.ShowScreen(this, "swap_screen");
+                manager.ShowScreen(this, "swap_screen_ag");
             });
 
             logoutBtn.onClick.AddListener(() =>
@@ -117,6 +118,7 @@ namespace Solana.Unity.SDK.Example
             {
                 lamports.text = $"{sol}";
             });
+            GetOwnedTokenAccounts().AsAsyncUnitUniTask().Forget();
         }
 
         private void OnDisable()
@@ -147,7 +149,9 @@ namespace Solana.Unity.SDK.Example
 
         private async UniTask GetOwnedTokenAccounts()
         {
-            var tokens = await Web3.Wallet.GetTokenAccounts(Commitment.Confirmed);
+            if(_isLoadingTokens) return;
+            _isLoadingTokens = true;
+            var tokens = await Web3.Wallet.GetTokenAccounts(Commitment.Processed);
             if(tokens == null) return;
             // Remove tokens not owned anymore and update amounts
             var tkToRemove = new List<TokenItem>();
@@ -169,9 +173,13 @@ namespace Solana.Unity.SDK.Example
             tkToRemove.ForEach(tk =>
             {
                 _instantiatedTokens.Remove(tk);
-                Destroy(tk.gameObject);
+                MainThreadDispatcher.Instance().Enqueue(() =>
+                {
+                    Destroy(tk.gameObject);
+                });
             });
             // Add new tokens
+            List<UniTask> loadingTasks = new List<UniTask>();
             if (tokens is {Length: > 0})
             {
                 var tokenAccounts = tokens.OrderByDescending(
@@ -181,23 +189,30 @@ namespace Solana.Unity.SDK.Example
                     if (!(item.Account.Data.Parsed.Info.TokenAmount.AmountUlong > 0)) break;
                     if (_instantiatedTokens.All(t => t.TokenAccount.Account.Data.Parsed.Info.Mint != item.Account.Data.Parsed.Info.Mint))
                     {
-                        var tk = Instantiate(tokenItem, tokenContainer, true);
-                        tk.transform.localScale = Vector3.one;
-
-                        Nft.Nft.TryGetNftData(item.Account.Data.Parsed.Info.Mint,
-                            Web3.Instance.WalletBase.ActiveRpcClient).AsUniTask().ContinueWith(nft =>
+                        // Run in the main thread
+                        await MainThreadDispatcher.Instance().EnqueueAsync(() =>
                         {
-                            TokenItem tkInstance = tk.GetComponent<TokenItem>();
-                            _instantiatedTokens.Add(tkInstance);
-                            tk.SetActive(true);
-                            if (tkInstance)
+                            var tk = Instantiate(tokenItem, tokenContainer, true);
+                            tk.transform.localScale = Vector3.one;
+                            var loadTask = Nft.Nft.TryGetNftData(item.Account.Data.Parsed.Info.Mint,
+                                Web3.Instance.WalletBase.ActiveRpcClient, commitment: Commitment.Processed).AsUniTask();
+                            loadingTasks.Add(loadTask);
+                            loadTask.ContinueWith(nft =>
                             {
-                                tkInstance.InitializeData(item, this, nft).Forget();
-                            }
-                        }).Forget();
+                                TokenItem tkInstance = tk.GetComponent<TokenItem>();
+                                _instantiatedTokens.Add(tkInstance);
+                                tk.SetActive(true);
+                                if (tkInstance)
+                                {
+                                    tkInstance.InitializeData(item, this, nft).Forget();
+                                }
+                            }).Forget();
+                        });
                     }
                 }
             }
+            await UniTask.WhenAll(loadingTasks);
+            _isLoadingTokens = false;
         }
         
         public static async UniTask<TokenMintResolver> GetTokenMintResolver()

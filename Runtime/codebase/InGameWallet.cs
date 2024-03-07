@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Solana.Unity.KeyStore.Exceptions;
+using Solana.Unity.KeyStore.Model;
 using Solana.Unity.KeyStore.Services;
 using Solana.Unity.Rpc.Models;
 using Solana.Unity.Wallet;
@@ -15,10 +17,10 @@ namespace Solana.Unity.SDK
 {
     public class InGameWallet : WalletBase
     {
-        private const string EncryptedKeystoreKey = "EncryptedKeystore";
+        protected string EncryptedKeystoreKey = "EncryptedKeystore";
 
-        public InGameWallet(RpcCluster rpcCluster = RpcCluster.DevNet, 
-            string customRpcUri = null, string customStreamingRpcUri = null, 
+        public InGameWallet(RpcCluster rpcCluster = RpcCluster.DevNet,
+            string customRpcUri = null, string customStreamingRpcUri = null,
             bool autoConnectOnStartup = false) : base(rpcCluster, customRpcUri, customStreamingRpcUri, autoConnectOnStartup)
         {
         }
@@ -68,20 +70,32 @@ namespace Solana.Unity.SDK
                 mnem = new Mnemonic(WordList.English, WordCount.Twelve);
                 var wallet = new Wallet.Wallet(mnem);
                 account = wallet.Account;
-                secret = mnem.ToString();
             }
             if(account == null) return Task.FromResult<Account>(null);
             
-            password ??= "";
+            MainThreadDispatcher.Instance().Enqueue(SaveEncryptedAccount(password,
+                mnem != null ? mnem.ToString() : secret, account.PublicKey));
 
-            var keystoreService = new KeyStorePbkdf2Service();
-            var stringByteArray = Encoding.UTF8.GetBytes(secret);
-            var encryptedKeystoreJson = keystoreService.EncryptAndGenerateKeyStoreAsJson(
-                password, stringByteArray, account.PublicKey.Key);
-
-            SavePlayerPrefs(EncryptedKeystoreKey, encryptedKeystoreJson);
             Mnemonic = mnem;
             return Task.FromResult(account);
+        }
+
+
+        private IEnumerator SaveEncryptedAccount(string password, string secret, PublicKey account)
+        {
+            yield return new WaitForSeconds(.1f);
+            password ??= "";
+            
+            var keystoreService = new KeyStorePbkdf2Service();
+            var stringByteArray = Encoding.UTF8.GetBytes(secret);
+            var pbkdf2Params = new Pbkdf2Params()
+            {
+                Dklen = 32, Count = 10000, Prf = "hmac-sha256"
+            };
+            var encryptedKeystoreJson = keystoreService.EncryptAndGenerateKeyStoreAsJson(
+                password, stringByteArray, account.Key, pbkdf2Params);
+
+            SavePlayerPrefs(EncryptedKeystoreKey, encryptedKeystoreJson);
         }
 
         /// <inheritdoc />
@@ -100,7 +114,7 @@ namespace Solana.Unity.SDK
         {
             return Task.FromResult(Account.Sign(message));
         }
-        
+
         /// <summary>
         /// Returns an instance of Keypair from a mnemonic, byte array or secret key
         /// </summary>
@@ -124,7 +138,7 @@ namespace Solana.Unity.SDK
 
             return account;
         }
-        
+
         /// <summary>
         /// Returns an instance of Keypair from a mnemonic
         /// </summary>
@@ -135,7 +149,7 @@ namespace Solana.Unity.SDK
             var wallet = new Wallet.Wallet(new Mnemonic(mnemonic));
             return wallet.Account;
         }
-        
+
         /// <summary>
         /// Returns an instance of Keypair from a secret key
         /// </summary>
@@ -146,14 +160,14 @@ namespace Solana.Unity.SDK
             try
             {
                 var wallet = new Wallet.Wallet(new PrivateKey(secretKey).KeyBytes, "", SeedMode.Bip39);
-                return wallet.Account;   
+                return wallet.Account;
             }catch (ArgumentException)
             {
                 return null;
             }
 
         }
-        
+
         /// <summary>
         /// Returns an instance of Keypair from a Byte Array
         /// </summary>
@@ -164,13 +178,13 @@ namespace Solana.Unity.SDK
             var wallet = new Wallet.Wallet(secretByteArray, "", SeedMode.Bip39);
             return wallet.Account;
         }
-        
+
         /// <summary>
-        /// Takes a string as input and checks if it is a valid mnemonic 
+        /// Takes a string as input and checks if it is a valid mnemonic
         /// </summary>
         /// <param name="secret"></param>
         /// <returns></returns>
-        private static bool IsMnemonic(string secret)
+        protected static bool IsMnemonic(string secret)
         {
             return secret.Split(' ').Length is 12 or 24;
         }
@@ -183,7 +197,7 @@ namespace Solana.Unity.SDK
         {
             return secret.StartsWith('[') && secret.EndsWith(']');
         }
-        
+
         /// <summary>
         /// Takes a string as input and tries to parse it into a Keypair
         /// </summary>
@@ -199,14 +213,14 @@ namespace Solana.Unity.SDK
 
             return FromByteArray(parsed);
         }
-        
 
-        private static string LoadPlayerPrefs(string key)
+
+        protected static string LoadPlayerPrefs(string key)
         {
             return PlayerPrefs.GetString(key);
         }
 
-        private static void SavePlayerPrefs(string key, string value)
+        protected static void SavePlayerPrefs(string key, string value)
         {
             PlayerPrefs.SetString(key, value);
             #if UNITY_WEBGL
