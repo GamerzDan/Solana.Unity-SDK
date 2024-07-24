@@ -216,7 +216,7 @@ namespace Solana.Unity.SDK
             {
                 ParseSuccessfullySignedTransaction(url);
             }
-            else if (url.ToLower().Contains("onconnected"))
+            else if (url.ToLower().Contains("onconnected") || url.ToLower().Contains("onphantomconnected"))
             {
                 ParseConnectionSuccessful(url);
             }
