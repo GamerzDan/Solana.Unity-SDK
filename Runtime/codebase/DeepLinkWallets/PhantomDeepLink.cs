@@ -207,6 +207,7 @@ namespace Solana.Unity.SDK
 
         private void OnDeepLinkActivated(string url)
         {
+            Debug.Log("OnDeepLinkActivated: " + url);
             if (url.ToLower().Contains("alltransactionssigned"))
             {
                 ParseSuccessfullySignedAllTransactions(url);
@@ -237,6 +238,9 @@ namespace Solana.Unity.SDK
             result.TryGetValue("nonce", out var phantomNonce);
             result.TryGetValue("data", out var data);
             result.TryGetValue("errorMessage", out var errorMessage);
+
+            Debug.Log($"ParseConnectionSuccessful Error {errorMessage}");
+
             if (!string.IsNullOrEmpty(errorMessage))
             {
                 _loginTaskCompletionSource?.TrySetResult(null);
